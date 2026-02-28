@@ -37,12 +37,15 @@ torder :: Order    -- ^ Order of resulting traversal
        -> Maybe a  -- ^ Optional leaf value
        -> Tree a   -- ^ Tree to traverse
        -> [a]      -- ^ List of values in specified order
-torder _  Nothing Leaf               = []
-torder _  (Just x) Leaf              = [x]
-torder PreOrder op (Branch a lt rt)  = a : torder PreOrder op lt ++ torder PreOrder op rt
-torder InOrder op (Branch a lt rt)   = torder InOrder op lt ++ [a] ++ torder InOrder op rt
-torder PostOrder op (Branch a lt rt) = torder PostOrder op lt ++ torder PostOrder op rt ++ [a]
-
+torder _  Nothing Leaf         = []
+torder _  (Just x) Leaf        = [x]
+torder ord op (Branch a lt rt) = case ord of
+  PreOrder  -> a    :   left ++ right
+  InOrder   -> left ++ [a]   ++ right
+  PostOrder -> left ++ right ++ [a]
+  where
+    left  = torder ord op lt
+    right = torder ord op rt
 
 -- | Returns values of given 'Forest' separated by optional separator
 -- where each 'Tree' is traversed in specified 'Order' with optional leaf value
@@ -73,3 +76,4 @@ forder order sep op xs = intercalate (maybeToList sep) (map (torder order op) xs
     intercalate _ []       = []
     intercalate _ [ys]     = ys
     intercalate ys (y:yss) = y ++ ys ++ intercalate ys yss
+    
