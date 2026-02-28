@@ -7,13 +7,13 @@ module Task2 where
 -- that are not supposed to be used in this assignment
 import Prelude hiding (compare, foldl, foldr, Ordering(..))
 
-import Task1 (Tree(..))
+import Task1 (Tree(..), torder, Order (InOrder))
 
 -- * Type definitions
 
 -- | Ordering enumeration
 data Ordering = LT | EQ | GT
-  deriving Show
+  deriving (Show, Eq)
 
 -- | Binary comparison function indicating whether first argument is less, equal or
 -- greater than the second one (returning 'LT', 'EQ' or 'GT' respectively)
@@ -33,7 +33,10 @@ type Cmp a = a -> a -> Ordering
 -- GT
 --
 compare :: Ord a => Cmp a
-compare = error "TODO: define compare"
+compare x y
+  | x < y     = LT
+  | x == y    = EQ
+  | otherwise = GT
 
 -- | Conversion of list to binary search tree
 -- using given comparison function
@@ -41,12 +44,13 @@ compare = error "TODO: define compare"
 -- Usage example:
 --
 -- >>> listToBST compare [2,3,1]
--- Branch 2 (Branch 1 Leaf Leaf) (Branch 3 Leaf Leaf)
+-- Branch 1 Leaf (Branch 3 (Branch 2 Leaf Leaf) Leaf)
 -- >>> listToBST compare ""
 -- Leaf
 --
 listToBST :: Cmp a -> [a] -> Tree a
-listToBST = error "TODO: define listToBST"
+listToBST _ []       = Leaf
+listToBST cmp (x:xs) = tinsert cmp x (listToBST cmp xs)
 
 -- | Conversion from binary search tree to list
 --
@@ -62,7 +66,7 @@ listToBST = error "TODO: define listToBST"
 -- []
 --
 bstToList :: Tree a -> [a]
-bstToList = error "TODO: define bstToList"
+bstToList = torder InOrder Nothing
 
 -- | Tests whether given tree is a valid binary search tree
 -- with respect to given comparison function
@@ -77,7 +81,22 @@ bstToList = error "TODO: define bstToList"
 -- False
 --
 isBST :: Cmp a -> Tree a -> Bool
-isBST = error "TODO: define isBST"
+isBST cmp = inBound cmp Nothing Nothing
+  where
+    inBound :: Cmp a -> Maybe a -> Maybe a -> Tree a -> Bool
+    inBound _ _ _ Leaf             = True
+    inBound cmp' l r (Branch x lt rt) = maybeGreater cmp' x l
+                                     && maybeLess cmp' x r
+                                     && inBound cmp' l        (Just x) lt
+                                     && inBound cmp' (Just x) r        rt
+
+    maybeGreater :: Cmp a -> a -> Maybe a -> Bool
+    maybeGreater _ _ Nothing    = True
+    maybeGreater cmp' x (Just l) = cmp' l x == LT
+
+    maybeLess :: Cmp a -> a -> Maybe a -> Bool
+    maybeLess _ _ Nothing    = True
+    maybeLess cmp' x (Just r) = cmp' x r == LT
 
 -- | Searches given binary search tree for
 -- given value with respect to given comparison
@@ -95,7 +114,11 @@ isBST = error "TODO: define isBST"
 -- Just 2
 --
 tlookup :: Cmp a -> a -> Tree a -> Maybe a
-tlookup = error "TODO: define tlookup"
+tlookup _ _ Leaf = Nothing
+tlookup cmp x (Branch y l r) = case cmp x y of
+    EQ -> Just y
+    LT -> tlookup cmp x l
+    GT -> tlookup cmp x r
 
 -- | Inserts given value into given binary search tree
 -- preserving its BST properties with respect to given comparison
@@ -113,7 +136,12 @@ tlookup = error "TODO: define tlookup"
 -- Branch 'a' Leaf Leaf
 --
 tinsert :: Cmp a -> a -> Tree a -> Tree a
-tinsert = error "TODO: define tinsert"
+tinsert _ x Leaf             = Branch x Leaf Leaf
+tinsert cmp x (Branch y l r) = case cmp x y of
+        EQ -> Branch x l r
+        LT -> Branch y (tinsert cmp x l) r
+        GT  -> Branch y l (tinsert cmp x r)
+
 
 -- | Deletes given value from given binary search tree
 -- preserving its BST properties with respect to given comparison
@@ -129,4 +157,16 @@ tinsert = error "TODO: define tinsert"
 -- Leaf
 --
 tdelete :: Cmp a -> a -> Tree a -> Tree a
-tdelete = error "TODO: define tdelete"
+tdelete _ _ Leaf             = Leaf
+tdelete cmp x (Branch y l r) = case cmp x y of
+    LT -> Branch y (tdelete cmp x l) r
+    GT -> Branch y l (tdelete cmp x r)
+    EQ -> case (l, r) of
+        (Leaf, _) -> r
+        (_, Leaf) -> l
+        _         -> Branch (fst (exctractMin r)) l (snd (exctractMin r))
+
+exctractMin :: Tree a -> (a, Tree a)
+exctractMin Leaf              = error "empty BST"
+exctractMin (Branch x Leaf r) = (x, r)
+exctractMin (Branch x l r)    = (fst (exctractMin l), Branch x (snd (exctractMin l)) r)
